@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Letter Frequency Counter</title>
+  <!-- CSS for layout styling -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background: #f9f9f9;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    #controls {
+      margin-bottom: 1rem;
+    }
+    #textInput {
+      width: 100%;
+      height: 100px;
+      resize: vertical;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    button {
+      margin-right: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #chartContainer {
+      position: relative;
+      width: 80%;        
+      max-width: 1200px;  
+      height: 50vh;     
+      min-height: 400px; 
+      margin: 2rem auto;
+    }
+    canvas {
+      background: #ffffff;
+      border: 1px solid #ccc;
+    }
+  </style>
+  <!-- Load Chart.js from a CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Load the data labels plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+</head>
+<body>
+
+  <h1>Letter Frequency Counter</h1>
+
+  <!-- Text area for user input -->
+  <textarea id="textInput" placeholder="Enter your text here..."></textarea>
+
+  <div id="controls">
+    <!-- Count button -->
+    <button id="countBtn">Count</button>
+    <!-- Toggle button -->
+    <button id="toggleBtn">Toggle Sort Mode</button>
+    <!-- Clear/Reset button -->
+    <button id="clearBtn">Clear</button>
+  </div>
+
+  <!-- Container for our chart -->
+  <div id="chartContainer">
+    <canvas id="chartCanvas"></canvas>
+  </div>
+
+  <script>
+    // Global variables for chart and sort mode
+    let chart;
+    let sortByFrequency = false; // false sorts alphabetical, true sorts frequency descending
+    let frequencyData = {};      // dict to store the letter frequency counts
+
+    // Once the page loads, add event listeners
+    window.onload = () => {
+      const countBtn = document.getElementById('countBtn');
+      const toggleBtn = document.getElementById('toggleBtn');
+      const clearBtn = document.getElementById('clearBtn');
+
+      countBtn.addEventListener('click', analyzeText);
+      toggleBtn.addEventListener('click', toggleSortMode);
+      clearBtn.addEventListener('click', clearAll);
+      
+
+      // Initialize empty chart for now
+      initChart();
+    };
+
+    //bar chart with empty data.
+     function initChart() {
+      const ctx = document.getElementById('chartCanvas').getContext('2d');
+
+      // Register the datalabels plugin
+      Chart.register(ChartDataLabels);
+
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Frequency',
+            data: [],
+            backgroundColor: 'skyblue',
+            borderColor: 'green',
+            borderWidth: 1
+          }]
+        },
+        plugins: [ChartDataLabels],  // Enable the data labels plugin
+        options: {
+          // Make the chart responsive to changes in the browser window size
+          responsive: true,
+          maintainAspectRatio: false,
+
+          plugins: {
+            title: {
+              display: true,
+              text: 'Letter Frequency Counter'
+            },
+            legend: {
+              display: false  // only have one dataset, no need for a legend
+            },
+            datalabels: {
+              // making sure place the labels at the top of the bar
+              anchor: 'end',
+              align: 'end',
+              offset: 0,
+              color: '#666',
+              font: {
+                weight: 'bold'
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Count'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Letters'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    //Reads user input, counts letters A to Z, updates frequencyData, and updates chart.
+    function analyzeText() {
+      const textInput = document.getElementById('textInput').value.trim();
+
+      // Check for empty input, give user message if true
+      if (!textInput) {
+        alert('Textbox empty. Please enter some text to count the occurence of each letter.');
+        return;
+      }
+
+      // function that counts letters A to Z only and is case-insensitive
+      frequencyData = countLetters(textInput);
+
+      // Refresh the chart
+      updateChart();
+    }
+
+    // toggles chart type from alpha to top down
+    function toggleSortMode() {
+      sortByFrequency = !sortByFrequency;
+      updateChart();
+    }
+
+    // Updates the bar chart using the current frequencyData and sort mode
+    function updateChart() {
+      // Convert frequencyData to an array of [letter, frequency]
+      const entries = Object.entries(frequencyData); 
+      // entries = [ ['A', freq], ['B', freq], ... ]
+
+      // Sort based on mode
+      if (sortByFrequency) {
+        // Most frequent on top => sort descending by frequency
+        entries.sort((a, b) => b[1] - a[1]);
+        chart.options.plugins.title.text = 'Letter Frequency (Most Frequent on Top)';
+      } else {
+        // Alphabetical
+        entries.sort((a, b) => a[0].localeCompare(b[0]));
+        chart.options.plugins.title.text = 'Letter Frequency (Alphabetical Order)';
+      }
+
+      // Separate into labels and data
+      const sortedLabels = entries.map(item => item[0]);
+      const sortedData = entries.map(item => item[1]);
+
+      // Update chart data
+      chart.data.labels = sortedLabels;
+      chart.data.datasets[0].data = sortedData;
+
+      chart.update();
+    }
+
+    // Counts the frequency of letters A-Z in the given text (case-insensitive). Returns an object mapping A-Z to frequency.
+    function countLetters(text) {
+      // Initialize frequency for A-Z
+      const freq = {};
+      for (let i = 65; i <= 90; i++) {
+        freq[String.fromCharCode(i)] = 0;
+      }
+
+      // Convert text to uppercase to match our freq keys
+      const upperText = text.toUpperCase();
+
+      // Count only letters A-Z
+      for (const char of upperText) {
+        if (freq.hasOwnProperty(char)) {
+          freq[char]++;
+        }
+      }
+
+      return freq;
+    }
+
+    // function to clear text area and chart
+    function clearAll() {
+      // Clear the text area
+      document.getElementById('textInput').value = '';
+
+      // Reset frequencyData
+      frequencyData = {};
+
+      // Reset chart data to empty
+      chart.data.labels = [];
+      chart.data.datasets[0].data = [];
+
+      // reset chart title
+      chart.options.plugins.title.text = 'Letter Frequency Counter';
+
+      chart.update();
+    }
+
+  </script>
+</body>
+</html>
